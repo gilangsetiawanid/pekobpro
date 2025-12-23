@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Doodslite - Pemutar Video HLS Tercepat</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        :root { --bg: #020617; --accent: #38bdf8; }
+        body { font-family: system-ui, sans-serif; background: var(--bg); color: #f8fafc; margin: 0; -webkit-tap-highlight-color: transparent; }
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+        
+        /* UI FIX - LOCKED */
+        .video-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; transition: opacity 0.3s ease-in-out; }
+        @media (min-width: 768px) { .video-grid { grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 15px; } }
+        
+        .nav-link { padding: 8px 14px; font-size: 11px; font-weight: 700; color: #94a3b8; border-radius: 10px; background: #111827; white-space: nowrap; border: 1px solid rgba(255,255,255,0.05); transition: all 0.2s; cursor: pointer; }
+        .nav-link.active { color: var(--accent); background: rgba(56, 189, 248, 0.1); border-color: rgba(56, 189, 248, 0.4); }
+
+        /* SCROLLABLE EXPLORE PANEL - LOCKED */
+        #moreFoldersContainer { 
+            max-height: 0; overflow-y: hidden; transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1); opacity: 0;
+            transform: translateY(-10px); background: linear-gradient(180deg, rgba(15, 23, 42, 0) 0%, rgba(15, 23, 42, 0.9) 100%);
+            border-radius: 0 0 20px 20px; padding: 0 4px;
+        }
+        #moreFoldersContainer.expanded { 
+            max-height: 320px; overflow-y: auto; margin-top: 15px; opacity: 1; transform: translateY(0); padding-bottom: 24px;
+        }
+        .dropdown-item { 
+            position: relative; padding: 12px; font-size: 10px; font-weight: 800; color: #64748b; background: rgba(30, 41, 59, 0.4); 
+            border-radius: 12px; text-align: left; text-transform: uppercase; border: 1px solid rgba(255,255,255,0.03); 
+            transition: all 0.2s ease; display: flex; align-items: center; gap: 8px;
+        }
+        .dropdown-item.active { 
+            color: #fff; background: linear-gradient(135deg, #0ea5e9 0%, #2563eb 100%); border-color: #38bdf8;
+            box-shadow: 0 4px 12px rgba(37, 99, 235, 0.2);
+        }
+        .more-header { position: sticky; top: 0; z-index: 10; background: #020617; display: flex; align-items: center; justify-content: space-between; padding: 12px 0; margin-bottom: 8px; }
+        .more-header span { font-size: 9px; font-weight: 900; color: #475569; text-transform: uppercase; letter-spacing: 1.5px; }
+
+        /* DECORATION - LOCKED */
+        .live-indicator { display: flex; align-items: center; gap: 6px; padding: 5px 10px; background: rgba(34, 197, 94, 0.05); border-radius: 9999px; border: 1px solid rgba(34, 197, 94, 0.2); }
+        .live-dot { width: 6px; height: 6px; background: #22c55e; border-radius: 50%; position: relative; }
+        .live-dot::after { content: ''; position: absolute; inset: -4px; border-radius: 50%; border: 2px solid #22c55e; animation: pulse-live 2s infinite; }
+        @keyframes pulse-live { 0% { transform: scale(1); opacity: 1; } 100% { transform: scale(2.5); opacity: 0; } }
+        .skeleton { background: #1e293b; border-radius: 15px; height: 120px; animation: skeleton-pulse 1.5s infinite linear; }
+        @keyframes skeleton-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+    </style>
+</head>
+<body class="pb-20">
+
+    <header class="sticky top-0 z-50 bg-slate-950/90 backdrop-blur-md border-b border-white/5 px-4 py-4 flex justify-between items-center h-[64px]">
+        <div class="flex items-center gap-2" onclick="location.reload()" style="cursor: pointer;">
+            <div class="bg-blue-600 p-1 rounded-md"><i data-lucide="zap" class="w-4 h-4 text-white fill-current"></i></div>
+            <h1 class="font-black text-white uppercase tracking-tighter text-lg italic">Dood<span class="text-blue-400">slite</span></h1>
+        </div>
+        <div class="live-indicator">
+            <div class="live-dot"></div>
+            <span class="text-[9px] font-black text-green-400 uppercase tracking-widest">Live</span>
+        </div>
+        <a href="https://t.me/doodslite" target="_blank" class="bg-[#0088cc20] text-[#0088cc] border border-[#0088cc40] px-3 py-1.5 rounded-lg text-[10px] font-black uppercase">TELEGRAM</a>
+    </header>
+
+    <section class="p-4 bg-slate-950/50 sticky top-[64px] z-40 border-b border-white/5 backdrop-blur-sm">
+        <div class="relative mb-4">
+            <i data-lucide="search" class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500"></i>
+            <input type="text" id="search" placeholder="Cari video favorit..." class="w-full bg-slate-900/80 border border-slate-800 rounded-xl py-3 pl-10 pr-4 text-sm outline-none text-white">
+        </div>
+        
+        <nav class="flex flex-col">
+            <div class="flex items-center gap-2">
+                <div class="flex items-center gap-2 overflow-x-auto no-scrollbar flex-1">
+                    <button id="btn-all" onclick="changeFolder('all', this)" class="nav-link active uppercase">Semua Video</button>
+                    <div id="mainFolders" class="flex gap-2"></div>
+                </div>
+                <button id="btnMore" onclick="toggleReadMore()" class="nav-link flex items-center gap-2 border-none bg-blue-600/10 text-blue-400 hidden">
+                    <span class="tracking-tighter uppercase font-bold">Explore</span> 
+                    <i data-lucide="layout-grid" id="moreIcon" class="w-3 h-3 transition-transform"></i>
+                </button>
+            </div>
+
+            <div id="moreFoldersContainer" class="no-scrollbar">
+                <div class="more-header">
+                    <span>Kategori Lainnya</span>
+                    <i data-lucide="chevrons-down-up" class="w-3 h-3 text-slate-700"></i>
+                </div>
+                <div id="dropdownList" class="grid grid-cols-2 gap-3 pb-4"></div>
+            </div>
+        </nav>
+    </section>
+
+    <main class="p-4" id="mainContent">
+        <div id="videoGrid" class="video-grid">
+            <div class="skeleton"></div><div class="skeleton"></div>
+            <div class="skeleton"></div><div class="skeleton"></div>
+        </div>
+    </main>
+
+    <section id="player" class="fixed inset-0 z-[2000] bg-black hidden flex-col">
+        <div class="flex justify-between items-center p-4 border-b border-white/5 bg-slate-950">
+            <span class="text-[9px] font-black text-blue-500 uppercase">Video Player</span>
+            <button onclick="closePlayer()" class="bg-white/5 p-2 rounded-full text-white"><i data-lucide="x" class="w-5 h-5"></i></button>
+        </div>
+        <div class="relative aspect-video bg-black">
+            <iframe id="iframeFallback" class="w-full h-full hidden" allowfullscreen frameborder="0"></iframe>
+            <div id="playerLoading" class="absolute inset-0 flex items-center justify-center bg-black z-10">
+                <div class="w-8 h-8 border-4 border-blue-500/20 border-t-blue-500 rounded-full animate-spin"></div>
+            </div>
+        </div>
+        <div class="p-6 flex-1 flex flex-col bg-slate-950">
+            <h3 id="videoTitle" class="text-white font-extrabold text-base uppercase leading-tight line-clamp-3 mb-6">...</h3>
+            <div class="mt-auto space-y-3">
+                <a id="btnDownload" target="_blank" class="w-full flex items-center justify-center gap-2 bg-blue-600 text-white py-4 rounded-2xl font-black uppercase text-[11px] shadow-lg shadow-blue-900/20">
+                    <i data-lucide="download-cloud" class="w-4 h-4"></i> UNDUH VIDEO
+                </a>
+                <button onclick="closePlayer()" class="w-full py-4 bg-slate-800 text-slate-300 rounded-2xl font-bold text-[10px] uppercase">Kembali</button>
+            </div>
+        </div>
+    </section>
+
+    <script>
+        const AD_LINK = 'https://tumbleddear.com/hmdadv66e?key=54c1cf18e87f36d96cacdd75ee15c0ca';
+        let state = { folders: [], currentFolder: 'all', isNavExpanded: false };
+
+        async function apiRequest(endpoint, params = {}) {
+            const query = new URLSearchParams({ endpoint, ...params }).toString();
+            try {
+                const res = await fetch(`api.php?${query}`);
+                const data = await res.json();
+                return data.status === 200 ? data.result : null;
+            } catch (e) { return null; }
+        }
+
+        async function init() {
+            lucide.createIcons();
+            const data = await apiRequest('folder/list');
+            if (data?.folders) {
+                state.folders = data.folders;
+                const main = document.getElementById('mainFolders');
+                const drop = document.getElementById('dropdownList');
+                state.folders.forEach((f, i) => {
+                    const btn = document.createElement('button');
+                    btn.onclick = () => changeFolder(f.fld_id, btn);
+                    if (i < 2) {
+                        btn.className = "nav-link uppercase"; btn.innerText = f.name;
+                        main.appendChild(btn);
+                    } else {
+                        btn.className = "dropdown-item";
+                        btn.innerHTML = `<i data-lucide="folder"></i> <span>${f.name}</span>`;
+                        drop.appendChild(btn);
+                        document.getElementById('btnMore').classList.remove('hidden');
+                    }
+                });
+                lucide.createIcons();
+            }
+            loadVideos();
+        }
+
+        async function loadVideos() {
+            const grid = document.getElementById('videoGrid');
+            const params = state.currentFolder === 'all' ? {} : { fld_id: state.currentFolder };
+            grid.style.opacity = '0.3';
+            const data = await apiRequest('file/list', params);
+            if (data?.files) {
+                grid.innerHTML = data.files.map(v => `
+                    <article class="bg-slate-900/40 border border-white/5 rounded-2xl overflow-hidden active:scale-95 transition-all" onclick="play('${v.file_code}', '${v.title.replace(/'/g, "\\'")}')">
+                        <div class="aspect-video relative bg-slate-800">
+                            <img src="${v.single_img}" class="w-full h-full object-cover opacity-80">
+                            <span class="absolute bottom-2 right-2 bg-blue-600/70 text-[8px] font-black px-1.5 py-0.5 rounded text-white">${v.length || 'HD'}</span>
+                        </div>
+                        <div class="p-3"><h3 class="text-[10px] font-bold uppercase line-clamp-2 text-slate-300 tracking-tighter">${v.title}</h3></div>
+                    </article>
+                `).join('');
+                grid.style.opacity = '1';
+            }
+        }
+
+        function changeFolder(id, el) {
+            state.currentFolder = id;
+            document.querySelectorAll('.nav-link, .dropdown-item').forEach(b => b.classList.remove('active'));
+            el.classList.add('active');
+            if (state.isNavExpanded) toggleReadMore();
+            loadVideos();
+        }
+
+        function toggleReadMore() {
+            const container = document.getElementById('moreFoldersContainer');
+            const icon = document.getElementById('moreIcon');
+            state.isNavExpanded = container.classList.toggle('expanded');
+            icon.style.transform = state.isNavExpanded ? 'rotate(180deg)' : 'rotate(0deg)';
+        }
+
+        function play(code, title) {
+            const p = document.getElementById('player');
+            const ifrm = document.getElementById('iframeFallback');
+            const load = document.getElementById('playerLoading');
+            document.getElementById('videoTitle').innerText = title;
+            document.getElementById('btnDownload').href = AD_LINK;
+            p.classList.remove('hidden'); p.classList.add('flex');
+            document.body.style.overflow = 'hidden';
+            ifrm.src = `https://dood.li/e/${code}`;
+            ifrm.classList.remove('hidden');
+            ifrm.onload = () => load.classList.add('hidden');
+        }
+
+        function closePlayer() {
+            document.getElementById('player').classList.add('hidden');
+            document.getElementById('iframeFallback').src = '';
+            document.body.style.overflow = 'auto';
+        }
+
+        document.getElementById('search').oninput = (e) => {
+            const q = e.target.value.toLowerCase();
+            document.querySelectorAll('#videoGrid article').forEach(item => {
+                item.style.display = item.innerText.toLowerCase().includes(q) ? 'block' : 'none';
+            });
+        };
+
+        init();
+    </script>
+</body>
+</html>
