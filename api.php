@@ -1,20 +1,18 @@
 <?php
-/**
- * DOODSLITE API - VERCEL EDITION
- * Optimized for Serverless (No File Write)
- */
+// DOODSLITE API - VERCEL SERVERLESS EDITION
+// Optimized for Vercel Edge Network
 
-// Vercel handling
 header('Content-Type: application/json; charset=utf-8');
-header("Access-Control-Allow-Origin: *"); 
+header("Access-Control-Allow-Origin: *");
 header("Access-Control-Allow-Methods: GET");
 
-// Cache Header untuk Browser (Pengganti File Cache)
-// Kita suruh Vercel Edge Network yang melakukan caching
-header("Cache-Control: public, max-age=300, s-maxage=300, must-revalidate");
+// --- VERCEL CACHING MAGIC ---
+// s-maxage=600 : Cache di server Vercel (CDN) selama 10 menit.
+// stale-while-revalidate=30 : Jika cache expired, server tetap kirim data lama sambil update di background.
+header("Cache-Control: public, s-maxage=600, stale-while-revalidate=30");
 
 // KONFIGURASI
-$API_KEY = "324754qf7ihkbj9wxlef7z"; // API KEY ANDA
+$API_KEY = "324754qf7ihkbj9wxlef7z"; // Ganti API Key Anda
 $BASE_URL = "https://doodapi.co/api/";
 
 $endpoint = $_GET['endpoint'] ?? '';
@@ -24,22 +22,20 @@ if (empty($endpoint)) {
     exit;
 }
 
-// Persiapkan Parameter
+// FETCH DATA DARI DOODSTREAM
 $params = $_GET;
 unset($params['endpoint']);
 $query_string = http_build_query($params);
 $final_url = $BASE_URL . $endpoint . "?key=" . $API_KEY . "&" . $query_string;
 
-// Eksekusi CURL
 $ch = curl_init();
 curl_setopt($ch, CURLOPT_URL, $final_url);
 curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
 curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
-curl_setopt($ch, CURLOPT_TIMEOUT, 10);
-
+curl_setopt($ch, CURLOPT_TIMEOUT, 15); // Timeout serverless function
 $result = curl_exec($ch);
 curl_close($ch);
 
-// Output langsung (Tanpa simpan ke file)
+// Output langsung
 echo $result;
 ?>
