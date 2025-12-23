@@ -1,0 +1,11 @@
+{
+  "functions": {
+    "api.php": { "runtime": "vercel-php@0.6.0" },
+    "sitemap.php": { "runtime": "vercel-php@0.6.0" }
+  },
+  "routes": [
+    { "src": "/(.*)",  "dest": "/index.html" },
+    { "src": "/api.php", "dest": "/api.php" },
+    { "src": "/sitemap.php", "dest": "/sitemap.php" }
+  ]
+}
