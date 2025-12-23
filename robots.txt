@@ -1,0 +1,5 @@
+User-agent: *
+Allow: /
+Disallow: /api.php
+Disallow: /cache/
+Sitemap: https://domain-anda.com/sitemap.php
